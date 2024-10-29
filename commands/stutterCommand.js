@@ -13,7 +13,7 @@ export async function stutterCommand(message) {
   while ((match = regex.exec(userMessage)) !== null) {
     const stutteredText = addStuttering(match[1]);
     modifiedMessage = modifiedMessage
-      .replace(match[1], `\n\n—*${stutteredText}*—\n\n`)
+      .replace(match[1], `—*${stutteredText}*—\n`)
       .replace(/"/g, "");
   }
 
