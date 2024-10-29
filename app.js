@@ -1,45 +1,56 @@
+import { Client, GatewayIntentBits } from "discord.js";
 import "dotenv/config";
-import express from "express";
-import {
-  InteractionType,
-  InteractionResponseType,
-  verifyKeyMiddleware,
-} from "discord-interactions";
-import { getRandomEmoji } from "./utils.js";
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.post(
-  "/interactions",
-  verifyKeyMiddleware(process.env.PUBLIC_KEY),
-  (req, res) => {
-    // Interaction type and data
-    const { type, id, data } = req.body;
-
-    if (type === InteractionType.PING) {
-      return res.send({ type: InteractionResponseType.PONG });
-    }
-
-    if (type === InteractionType.APPLICATION_COMMAND) {
-      const { name } = data;
-      // "test" command
-      if (name === "test") {
-        // Send a message into the channel where command was triggered from
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            // Fetches a random emoji to send from a helper function
-            content: `H-hello ${getRandomEmoji()} https://tenor.com/8K1y.gif`,
-          },
-        });
-      }
-    }
-    console.error("unknown interaction type", type);
-    return res.status(400).json({ error: "unknown interaction type" });
-  }
-);
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
+
+client.once("ready", () => {
+  console.log("Bot is online!");
+});
+
+// Helper function to add stuttering effect
+function addStuttering(text) {
+  return text
+    .split(" ")
+    .map((word) => (Math.random() > 0.5 ? `${word[0]}-${word}` : word))
+    .join(" ");
+}
+
+client.on("messageCreate", async (message) => {
+  // Ignore bot messages and check if the message includes the bot mention
+  if (message.author.bot) return;
+
+  const botMention = `<@${client.user.id}>`;
+  if (message.content.includes(botMention)) {
+    const userMessage = message.content.replace(botMention, "").trim();
+    const authorName = message.member.displayName; // Get author's display name
+
+    // Regex to find text within quotation marks
+    const regex = /"(.*?)"/g;
+    let modifiedMessage = userMessage;
+    let match;
+
+    // Apply stuttering only to quoted text
+    while ((match = regex.exec(userMessage)) !== null) {
+      const stutteredText = addStuttering(match[1]);
+      modifiedMessage = modifiedMessage.replace(match[1], stutteredText);
+    }
+
+    // Construct the formatted message
+    const responseMessage = `**${authorName}:** ${userMessage.replace(
+      /"(.*?)"/g,
+      `"${addStuttering("$1")}"`
+    )}`;
+
+    // Send the modified message and delete the original
+    await message.channel.send(responseMessage);
+    await message.delete(); // Delete original message
+  }
+});
+
+client.login(process.env.DISCORD_TOKEN);
